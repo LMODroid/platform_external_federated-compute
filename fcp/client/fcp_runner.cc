@@ -1,3 +1,19 @@
+/*
+ * Copyright 2023 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "fcp/client/fcp_runner.h"
 
 #include "fcp/client/engine/example_iterator_factory.h"
@@ -279,11 +295,35 @@ absl::StatusOr<FLRunnerResult> RunFederatedComputation(
   if (outcome == engine::PlanOutcome::kSuccess) {
     fl_runner_result.set_contribution_result(FLRunnerResult::SUCCESS);
   } else {
+    switch (outcome) {
+      case engine::PlanOutcome::kInvalidArgument:
+        fl_runner_result.set_error_status(FLRunnerResult::INVALID_ARGUMENT);
+        break;
+      case engine::PlanOutcome::kTensorflowError:
+        fl_runner_result.set_error_status(FLRunnerResult::TENSORFLOW_ERROR);
+        break;
+      case engine::PlanOutcome::kExampleIteratorError:
+        fl_runner_result.set_error_status(
+            FLRunnerResult::EXAMPLE_ITERATOR_ERROR);
+        break;
+      default:
+        break;
+    }
     fl_runner_result.set_contribution_result(FLRunnerResult::FAIL);
     std::string error_message = std::string{
         plan_result_and_checkpoint_file.plan_result.original_status.message()};
     fl_runner_result.set_error_message(error_message);
   }
+
+  FLRunnerResult::ExampleStats example_stats;
+  example_stats.set_example_count(
+      plan_result_and_checkpoint_file.plan_result.example_stats.example_count);
+  example_stats.set_example_size_bytes(
+      plan_result_and_checkpoint_file.plan_result.example_stats
+          .example_size_bytes);
+
+  *fl_runner_result.mutable_example_stats() = example_stats;
+
   return fl_runner_result;
 }
 
